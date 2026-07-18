@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>מערכת הזמנות · מפעל</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,Arial,sans-serif;background:#F1F5F9;direction:rtl;min-height:100vh}
+button{cursor:pointer;font-family:inherit}
+input,textarea{font-family:inherit;direction:rtl;font-size:14px}
+
+#app{display:flex;flex-direction:column;min-height:100vh}
+#topnav{background:#1E3A5F;height:56px;display:flex;align-items:center;padding:0 24px;justify-content:space-between;flex-shrink:0}
+#topnav .brand{display:flex;align-items:center;gap:10px;color:white;font-size:16px;font-weight:700}
+#topnav .user-area{display:flex;align-items:center;gap:14px}
+#topnav .username{font-size:13px;color:#93C5FD}
+#body{display:flex;flex:1}
+#sidebar{width:220px;background:white;border-left:1px solid #E2E8F0;padding:14px 0;flex-shrink:0;display:flex;flex-direction:column}
+#main{flex:1;padding:24px;overflow:auto}
+
+.nav-btn{display:flex;align-items:center;gap:9px;padding:10px 18px;background:transparent;border:none;width:100%;text-align:right;font-size:14px;color:#374151;font-weight:400;transition:background 0.1s}
+.nav-btn:hover{background:#F8FAFC}
+.nav-btn.active{background:#EFF6FF;color:#1D4ED8;font-weight:600}
+.filter-label{margin:16px 0 5px;padding:0 18px;font-size:11px;font-weight:700;color:#94A3B8;letter-spacing:0.07em;text-transform:uppercase}
+.filter-btn{display:flex;align-items:center;justify-content:space-between;padding:7px 18px;background:transparent;border:none;width:100%;text-align:right;font-size:13px;color:#64748B;cursor:pointer}
+.filter-btn:hover{background:#F8FAFC}
+.filter-btn.active{font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.count-badge{border-radius:10px;padding:1px 8px;font-size:11px;font-weight:700}
+
+.card{background:white;border:1px solid #E2E8F0;border-radius:12px}
+.order-row{background:white;border:1px solid #E2E8F0;border-radius:12px;padding:14px 18px;cursor:pointer;display:flex;align-items:center;gap:14px;margin-bottom:9px;transition:box-shadow 0.15s}
+.order-row:hover{box-shadow:0 4px 16px rgba(0,0,0,0.08)}
+.order-row.urgent{border-color:#FCA5A5}
+.order-num-box{background:#F8FAFC;border-radius:8px;padding:6px 10px;text-align:center;min-width:74px;flex-shrink:0}
+
+.badge{border-radius:20px;padding:3px 12px;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid}
+.badge-pending         {background:#FFFBEB;color:#92400E;border-color:#FCD34D}
+.badge-in_progress     {background:#EFF6FF;color:#1E40AF;border-color:#93C5FD}
+.badge-needs_revision  {background:#FEF2F2;color:#991B1B;border-color:#FCA5A5}
+.badge-sent_to_client  {background:#FFFBEB;color:#B45309;border-color:#FCD34D}
+.badge-ready_for_print {background:#F5F3FF;color:#6B21A8;border-color:#C4B5FD}
+.badge-in_print        {background:#ECFEFF;color:#0E7490;border-color:#67E8F9}
+.badge-completed       {background:#F0FDF4;color:#166534;border-color:#86EFAC}
+
+.input-field{width:100%;border:1px solid #CBD5E1;border-radius:8px;padding:9px 12px;font-size:14px;color:#1E293B;outline:none}
+.input-field:focus{border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.1)}
+.field-wrap{margin-bottom:18px}
+.field-wrap label{display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px}
+
+.btn-primary{background:#1E3A5F;color:white;border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:600}
+.btn-primary:hover{background:#1a3254}
+.btn-ghost{background:none;border:1px solid #E2E8F0;border-radius:8px;padding:10px 18px;font-size:13px;color:#64748B}
+.btn-ghost:hover{background:#F8FAFC}
+.btn-status{border-radius:8px;padding:10px 14px;font-weight:600;font-size:13px;border:1px solid;text-align:right;width:100%;margin-bottom:8px;display:flex;align-items:center;gap:6px;cursor:pointer}
+.btn-start   {background:#EFF6FF;color:#1E40AF;border-color:#93C5FD}
+.btn-done    {background:#F0FDF4;color:#166534;border-color:#86EFAC}
+.btn-revision{background:#FEF2F2;color:#991B1B;border-color:#FCA5A5}
+.btn-back    {background:#EFF6FF;color:#1E40AF;border-color:#93C5FD}
+
+.upload-zone{border:2px dashed #CBD5E1;border-radius:10px;padding:26px 20px;text-align:center;cursor:pointer;background:#F8FAFC;transition:all 0.2s}
+.upload-zone:hover{border-color:#93C5FD;background:#EFF6FF}
+.upload-zone.has-file{border-color:#2563EB;background:#EFF6FF}
+
+#login-screen{min-height:100vh;background:linear-gradient(135deg,#0D1B2A 0%,#1B2838 50%,#0D1B2A 100%);display:flex;align-items:center;justify-content:center;padding:20px;position:relative;overflow:hidden}
+#login-screen::before{content:'';position:absolute;top:-30%;left:-20%;width:600px;height:600px;background:radial-gradient(ellipse,rgba(37,99,235,0.15) 0%,transparent 70%);pointer-events:none}
+#login-screen::after{content:'';position:absolute;bottom:-20%;right:-10%;width:500px;height:500px;background:radial-gradient(ellipse,rgba(14,116,144,0.1) 0%,transparent 70%);pointer-events:none}
+.login-card{background:rgba(255,255,255,0.06);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.12);border-radius:24px;padding:48px 44px;width:100%;max-width:440px;text-align:center;position:relative;z-index:1;box-shadow:0 25px 60px rgba(0,0,0,0.4)}
+
+.history-item{display:flex;gap:12px;margin-bottom:14px}
+.history-line{display:flex;flex-direction:column;align-items:center;width:14px;flex-shrink:0}
+.history-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.history-connector{width:1px;flex:1;background:#E2E8F0;margin-top:4px}
+
+.pdf-toolbar{padding:12px 18px;border-bottom:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center}
+.pdf-body{height:490px;background:#F8FAFC;display:flex;align-items:center;justify-content:center}
+.pdf-placeholder{text-align:center;color:#94A3B8;padding:20px}
+.detail-grid{display:grid;grid-template-columns:1fr 320px;gap:18px;align-items:start}
+.detail-meta{display:flex;justify-content:space-between;margin-bottom:10px;font-size:13px}
+.page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.page-title{font-size:20px;font-weight:700;color:#1E293B}
+.page-count{font-size:14px;font-weight:400;color:#94A3B8;margin-right:6px}
+.back-btn{background:none;border:none;display:flex;align-items:center;gap:4px;font-size:13px;color:#64748B;cursor:pointer;padding:0}
+.section-title{font-size:14px;font-weight:700;color:#1E293B;margin-bottom:14px}
+.empty-state{text-align:center;padding:80px 20px;color:#94A3B8}
+.tag{display:flex;align-items:center;gap:6px}
+
+/* Command bar */
+#cmdbar{background:#F8FAFC;border-bottom:1px solid #E2E8F0;padding:10px 24px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.search-input{border:1px solid #CBD5E1;border-radius:8px;padding:8px 14px;font-size:14px;color:#1E293B;outline:none;background:white;direction:rtl;width:260px}
+.search-input:focus{border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,0.1)}
+
+/* ── צ'אט צף ── */
+#chat-bubble{position:fixed;left:20px;bottom:20px;z-index:9999}
+#chat-btn{width:54px;height:54px;border-radius:50%;background:#1E3A5F;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,0.3);font-size:24px;position:relative}
+#chat-badge{position:absolute;top:-4px;right:-4px;background:#EF4444;color:white;border-radius:50%;width:20px;height:20px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;display:none}
+#chat-window{position:fixed;left:20px;bottom:84px;width:340px;height:480px;background:white;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.2);display:none;flex-direction:column;overflow:hidden;z-index:9998;border:1px solid #E2E8F0}
+#chat-window.open{display:flex}
+#chat-header{background:#1E3A5F;color:white;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+#chat-tabs{display:flex;gap:4px;padding:8px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;flex-shrink:0}
+.chat-tab{flex:1;padding:6px;border:1px solid #E2E8F0;border-radius:6px;background:white;font-size:12px;font-weight:600;cursor:pointer;text-align:center;color:#64748B}
+.chat-tab.active{background:#1E3A5F;color:white;border-color:#1E3A5F}
+#chat-users{display:none;flex-direction:column;gap:4px;padding:8px;overflow-y:auto;flex:1}
+#chat-users.visible{display:flex}
+.chat-user-btn{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #E2E8F0;border-radius:8px;background:white;cursor:pointer;font-size:13px;font-weight:500;color:#1E293B;text-align:right}
+.chat-user-btn:hover{background:#F1F5F9}
+.chat-user-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+#chat-messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.msg-row{display:flex;flex-direction:column;max-width:80%}
+.msg-row.mine{align-self:flex-start}
+.msg-row.theirs{align-self:flex-end}
+.msg-bubble{padding:8px 12px;border-radius:12px;font-size:13px;line-height:1.5;word-break:break-word}
+.msg-row.mine .msg-bubble{background:#1E3A5F;color:white;border-bottom-right-radius:4px}
+.msg-row.theirs .msg-bubble{background:#F1F5F9;color:#1E293B;border-bottom-left-radius:4px}
+.msg-meta{font-size:10px;color:#94A3B8;margin-top:3px;padding:0 4px}
+.msg-row.mine .msg-meta{text-align:right}
+.msg-row.theirs .msg-meta{text-align:left}
+#chat-input-row{display:flex;gap:8px;padding:10px;border-top:1px solid #E2E8F0;flex-shrink:0}
+#chat-input{flex:1;border:1px solid #CBD5E1;border-radius:8px;padding:8px 12px;font-size:13px;outline:none;direction:rtl;font-family:inherit}
+#chat-input:focus{border-color:#1E3A5F}
+#chat-send{background:#1E3A5F;color:white;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600}
+#chat-back{background:none;border:none;color:rgba(255,255,255,0.8);cursor:pointer;font-size:13px;padding:0}
+#chat-title-text{font-size:14px;font-weight:600}
+.btn-search{background:#1E3A5F;color:white;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer}
+.btn-clear{background:none;border:1px solid #FCA5A5;border-radius:8px;padding:7px 13px;font-size:13px;color:#991B1B;cursor:pointer;font-weight:600}
+.search-tag{background:#EFF6FF;color:#1E40AF;border:1px solid #93C5FD;border-radius:20px;padding:3px 12px;font-size:12px;font-weight:600}
+
+/* Notifications */
+.notif-board{background:#FFFBEB;border:1px solid #FCD34D;border-radius:12px;padding:16px 18px;margin-bottom:20px}
+.notif-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.notif-title{font-size:14px;font-weight:700;color:#92400E;display:flex;align-items:center;gap:8px}
+.notif-badge{background:#D97706;color:white;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:700}
+.notif-item{background:white;border:1px solid #FDE68A;border-radius:8px;padding:11px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:10px}
+.notif-item.read{opacity:0.6}
+.notif-dot-new{width:8px;height:8px;border-radius:50%;background:#D97706;flex-shrink:0;margin-top:4px}
+.notif-dot-read{width:8px;height:8px;border-radius:50%;background:#CBD5E1;flex-shrink:0;margin-top:4px}
+.notif-dismiss{background:none;border:none;color:#94A3B8;cursor:pointer;font-size:16px;padding:2px 6px;line-height:1;flex-shrink:0}
+.btn-mark-read{background:none;border:1px solid #FCD34D;border-radius:6px;padding:4px 10px;font-size:12px;color:#92400E;cursor:pointer;font-weight:600}
+
+/* Loading overlay */
+#loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;font-size:16px;color:#1E3A5F;gap:16px}
+.spinner{width:40px;height:40px;border:3px solid #E2E8F0;border-top-color:#1E3A5F;border-radius:50%;animation:spin 0.8s linear infinite}
+
+/* Real-time toast */
+#toast{position:fixed;bottom:24px;left:24px;background:#1E3A5F;color:white;padding:14px 20px;border-radius:10px;font-size:14px;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,0.2);transform:translateY(80px);opacity:0;transition:all 0.3s;z-index:1000;max-width:320px}
+#toast.show{transform:translateY(0);opacity:1}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div>טוען מערכת...</div>
+</div>
+<div id="toast"></div>
+<div id="app"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+//  ⚙️  הגדרות Supabase — שנה את הערכים האלה!
+// ══════════════════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://asybkikeelhtsxglnijo.supabase.co';   // ← הכנס את ה-Project URL
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzeWJraWtlZWxodHN4Z2xuaWpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMzIwNjUsImV4cCI6MjA5NzgwODA2NX0.DnrRzV2WmCZfb-hXT53IuV-Y3D2pxBig4RKDPJb5T6E';       // ← הכנס את ה-anon public key
+// ══════════════════════════════════════════════════════════════════
+
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ─── סטטוסים ──────────────────────────────────────────────────────
+const COMPANY_LOGO = 'data:image/jpeg;base64,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uP8A0Y1YNf0y33/BKf8AZf1C9uL+4n8QebcyPK+L+IDc5LHH7jpk1X/4dN/ssf8APfxD/wCB8X/yPU2LufzRUV/S7/w6b/ZY/wCe/iH/AMD4v/kej/h03+yx/wA9/EP/AIHxf/I9FgufzpfD/wAb658N/Gmj+OfDcxg1HRbmO4iYHGSh5U+zDIP1r9+/2nPAWg/t0fsraN8aPh3Gs3ibRbY3KRpgyEKP9JtW75Ugsorsv+HTf7LH/PfxD/4Hxf8AyPX1T+z9+zJ4A/Zr0vUdD+Hl9qk+nanIJZLfULlLiNJAMFowsabSR17GhITZ/H7LFJBK8MylJIyVZSMEEcEEVHX9Rfj3/gmd+zL8QfF2p+MtSg1TT7vVZWnmhsbuOG3EjcsUQwtjJ5PNcl/w6c/ZZ/57eIP/AAPi/wDkeiw7n80NFf0vf8OnP2Wf+e3iD/wPi/8Akej/AIdOfss/89vEH/gfF/8AI9FgufzQ0V/S9/w6c/ZZ/wCe3iD/AMD4v/kej/h05+yz/wA9vEH/AIHxf/I9FgufzQ0V/S9/w6c/ZZ/57eIP/A+L/wCR6P8Ah05+yz/z28Qf+B8X/wAj0WC5/NDRX9L3/Dpz9ln/AJ7eIP8AwPi/+R6P+HTn7LP/AD28Qf8AgfF/8j0WC55H/wAEcv8Akm/xB/7C1v8A+k4r9kq+dP2eP2Y/hv8Asy6Nq2h/DZ757bWbhLmf7dOs7b0TYNpVEwMfWvoumiWFFFFMQUUUUAFFFFAH/9L9/KKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA//T/fyiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP/1P38ooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/9X9/KKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA//Z';
+const STATUS = {
+  pending:              {label:"ממתין",              fg:"#92400E",dot:"#D97706"},
+  in_progress:          {label:"בעבודה",              fg:"#1E40AF",dot:"#3B82F6"},
+  needs_revision:       {label:"דרוש תיקון",         fg:"#991B1B",dot:"#EF4444"},
+  sent_to_client:       {label:"נשלח ללקוח לאישור", fg:"#B45309",dot:"#F59E0B"},
+  ready_for_print:      {label:"מוכן לדפוס",         fg:"#6B21A8",dot:"#A855F7"},
+  in_print:             {label:"בדפוס",               fg:"#0E7490",dot:"#06B6D4"},
+  pending_production:   {label:"ממתין לייצור",       fg:"#7C3AED",dot:"#8B5CF6"},
+  in_production:        {label:"בייצור",              fg:"#C2410C",dot:"#F97316"},
+  ready_for_install:    {label:"מוכן להתקנה",        fg:"#1D4ED8",dot:"#3B82F6"},
+  completed:            {label:"הושלם",               fg:"#166534",dot:"#22C55E"},
+};
+
+// ─── State ────────────────────────────────────────────────────────
+let state = {
+  user:null, orders:[], notifications:[],
+  view:"list", selId:null, filter:"all",
+  pdfSrc:null, pdfLoading:false,
+  pendingStatus:null, statusNote:"",
+  form:{customer:"",due:today(),notes:"",details:"",quantity:"",file:null,hasGraphics:null,installdue:"",phone:""},
+  loginErr:"", searchQuery:"", searchResults:null, formError:"",
+};
+
+let _counter = 1000;
+
+function today(){ return new Date().toISOString().split("T")[0]; }
+
+// ─── DB: הזמנות ───────────────────────────────────────────────────
+async function dbLoadOrders(){
+  const {data,error} = await db.from('orders').select('*').order('id',{ascending:false});
+  if(error){ console.error('loadOrders:',error); return []; }
+  return (data||[]).map(o=>({
+    id:o.id, num:o.num, customer:o.customer, due:o.due,
+    notes:o.notes||'', details:o.details||'', quantity:o.quantity||'',
+    status:o.status,
+    byName: o.byname||o.byName||'',
+    byId:   o.byid||o.byId||'',
+    createdAt: o.createdat||o.createdAt||'',
+    fileName:  o.filename||o.fileName||null,
+    fileSize:  o.filesize||o.fileSize||null,
+    fileUrl:   o.fileurl||o.fileUrl||null,
+    hasGraphics: o.hasgraphics!==undefined ? o.hasgraphics : (o.hasGraphics!==undefined ? o.hasGraphics : null),
+    installdue: o.installdue||null,
+    phone: o.phone||null,
+    history: typeof o.history==='string' ? JSON.parse(o.history) : (o.history||[])
+  }));
+}
+
+async function dbInsertOrder(order){
+  const row = {
+    id:order.id, num:order.num, customer:order.customer,
+    due:order.due, notes:order.notes||'', details:order.details||'', quantity:order.quantity||'',
+    status:order.status,
+    byname:order.byName, byid:order.byId,
+    createdat:order.createdAt,
+    filename:order.fileName||null, filesize:order.fileSize||null, fileurl:order.fileUrl||null,
+    hasgraphics:order.hasGraphics,
+    installdue:order.installdue||null,
+    phone:order.phone||null,
+    history:order.history
+  };
+  const {error} = await db.from('orders').insert(row);
+  if(error) console.error('insertOrder:',error);
+}
+
+async function dbUpdateOrder(id, patch){
+  const row = {};
+  if(patch.status    !== undefined) row.status    = patch.status;
+  if(patch.history   !== undefined) row.history   = patch.history;
+  if(patch.fileName  !== undefined) row.filename  = patch.fileName;
+  if(patch.fileSize  !== undefined) row.filesize  = patch.fileSize;
+  if(patch.fileUrl   !== undefined) row.fileurl   = patch.fileUrl;
+  if(patch.hasGraphics !== undefined) row.hasgraphics = patch.hasGraphics;
+  const {error} = await db.from('orders').update(row).eq('id',id);
+  if(error) console.error('updateOrder:',error);
+}
+
+// ─── DB: קבצים ────────────────────────────────────────────────────
+async function dbUploadFile(orderId, file){
+  const ext = file.name.split('.').pop().toLowerCase();
+  const path = `${orderId}.${ext}`;
+  const {error} = await db.storage.from('order-files').upload(path, file, {upsert:true, contentType:file.type});
+  if(error){ console.error(error); return null; }
+  const {data} = db.storage.from('order-files').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+function dbGetFileUrl(orderId, fileName){
+  if(!fileName||!orderId) return null;
+  const ext = fileName.split('.').pop().toLowerCase();
+  const {data} = db.storage.from('order-files').getPublicUrl(`${orderId}.${ext}`);
+  return data?.publicUrl || null;
+}
+
+// ─── DB: התראות ───────────────────────────────────────────────────
+async function dbLoadNotifications(){
+  const {data,error} = await db.from('notifications').select('*').order('at',{ascending:false});
+  if(error){ console.error('loadNotifs:',error); return []; }
+  return (data||[]).map(n=>({
+    id:n.id, orderId:n.orderid||n.orderId, orderNum:n.ordernum||n.orderNum,
+    customer:n.customer, note:n.note||'', at:n.at, read:n.read, source:n.source||'print'
+  }));
+}
+
+async function dbAddNotification(order, note, source){
+  const {error} = await db.from('notifications').insert({
+    id:'n_'+Date.now(), orderid:order.id, ordernum:order.num,
+    customer:order.customer, note:note||'', at:new Date().toISOString(), read:false,
+    source: source||'print'
+  });
+  if(error) console.error('addNotif:',error);
+}
+
+async function dbMarkAllRead(){
+  await db.from('notifications').update({read:true}).eq('read',false);
+  state.notifications = await dbLoadNotifications();
+  render();
+}
+
+async function dbDismissNotif(id){
+  await db.from('notifications').delete().eq('id',id);
+  state.notifications = state.notifications.filter(n=>n.id!==id);
+  render();
+}
+
+async function dbClearAllNotifs(){
+  await db.from('notifications').delete().neq('id','__none__');
+  state.notifications = [];
+  render();
+}
+
+// ─── אתחול ────────────────────────────────────────────────────────
+async function init(){
+  if(SUPABASE_URL==='YOUR_SUPABASE_URL'){
+    document.getElementById('loading-overlay').innerHTML =
+      '<div style="text-align:center;padding:40px;max-width:400px"><div style="font-size:48px;margin-bottom:16px">⚙️</div><h2 style="color:#1E3A5F;margin-bottom:12px">נדרשת הגדרה</h2><p style="color:#64748B;line-height:1.6">פתח את הקובץ בעורך טקסט<br>והחלף את SUPABASE_URL ו-SUPABASE_KEY<br>בערכים מפרויקט Supabase שלך</p></div>';
+    return;
+  }
+  try{
+    [state.orders, state.notifications] = await Promise.all([dbLoadOrders(), dbLoadNotifications()]);
+    if(state.orders.length){
+      const max = Math.max(...state.orders.map(o=>parseInt((o.num||'HZ-1000').split('-')[1])||1000));
+      if(max>=_counter) _counter=max;
+    }
+  }catch(e){ console.error(e); }
+  document.getElementById('loading-overlay').style.display='none';
+  render();
+  setupRealtime();
+}
+
+// ─── Real-time: התראות חיות ────────────────────────────────────────
+function setupRealtime(){
+  // Supabase Realtime subscription
+  try {
+    db.channel('factory-realtime')
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications'},async payload=>{
+        state.notifications = await dbLoadNotifications();
+        if(state.user?.role==='clerk'){
+          showToast(`${payload.new.source==='production'?'🏭 הזמנה '+( payload.new.ordernum||payload.new.orderNum)+' מוכנה להתקנה':'✅ הזמנה '+(payload.new.ordernum||payload.new.orderNum)+' הושלמה בדפוס'} — ${payload.new.customer}`);
+          render();
+        }
+      })
+      .on('postgres_changes',{event:'*',schema:'public',table:'orders'},async ()=>{
+        state.orders = await dbLoadOrders();
+        render();
+      })
+      .subscribe();
+  } catch(e){ console.log('Realtime not available, using polling'); }
+
+  // Polling כגיבוי — בדיקה כל 30 שניות
+  setInterval(async ()=>{
+    if(!state.user) return;
+    const prevNotifCount = state.notifications.length;
+    const prevUnread = state.notifications.filter(n=>!n.read).length;
+    state.notifications = await dbLoadNotifications();
+    state.orders = await dbLoadOrders();
+    const newUnread = state.notifications.filter(n=>!n.read).length;
+    // אם יש התראות חדשות שלא היו לפני
+    if(newUnread > prevUnread && state.user.role==='clerk'){
+      const newest = state.notifications.find(n=>!n.read);
+      if(newest) showToast(`${newest.source==='production'?'🏭 הזמנה '+(newest.orderNum||newest.ordernum)+' מוכנה להתקנה':'✅ הזמנה '+(newest.orderNum||newest.ordernum)+' הושלמה בדפוס'} — ${newest.customer}`);
+    }
+    render();
+  }, 30000);
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),4000);
+}
+
+// ─── State ────────────────────────────────────────────────────────
+function setState(patch){ Object.assign(state,patch); render(); }
+
+// ─── Actions: כניסה ───────────────────────────────────────────────
+async function doLogin(username,password){
+  const {data} = await db.from('users').select('*').eq('username',username).eq('password',password).single();
+  if(data){ setState({user:data, loginErr:""}); }
+  else     { setState({loginErr:"שם משתמש או סיסמה שגויים"}); }
+}
+
+function doLogout(){ setState({user:null,view:'list',selId:null,filter:'all',pdfSrc:null,loginErr:'',searchResults:null,searchQuery:''}); }
+
+// ─── Actions: יצירת הזמנה ─────────────────────────────────────────
+async function doCreateOrder(){
+  const {customer,due,notes,details,quantity,file,hasGraphics,installdue,phone} = state.form;
+  const user = state.user;
+  if(!customer){ state.formError="יש למלא שם לקוח"; render(); return; }
+  if(!due)     { state.formError="יש לבחור תאריך יעד"; render(); return; }
+  state.formError="";
+
+  const id  = 'o_'+Date.now();
+  const num = 'HZ-'+(++_counter);
+  let fileUrl = null;
+
+  showLoadingOverlay('שולח הזמנה...');
+  if(file){ fileUrl = await dbUploadFile(id,file); }
+
+  const order = {
+    id, num, customer, due, notes:notes||'', details:details||'', quantity:quantity||'',
+    status:'pending', byId:user.id, byName:user.name,
+    createdAt:new Date().toISOString(),
+    fileName:file?file.name:null, fileSize:file?file.size:null, fileUrl,
+    hasGraphics: hasGraphics, installdue: installdue||null, phone: phone||null,
+    history:[{status:'pending',note:'הזמנה נוצרה',by:user.name,at:new Date().toISOString()}]
+  };
+
+  await dbInsertOrder(order);
+  state.orders = await dbLoadOrders();
+  state.form   = {customer:'',due:today(),notes:'',details:'',quantity:'',file:null,hasGraphics:null,installdue:'',phone:''};
+  state.view   = 'list';
+  hideLoadingOverlay();
+  render();
+}
+
+// ─── Actions: עדכון סטטוס ─────────────────────────────────────────
+async function doUpdateStatus(orderId, newStatus){
+  const order = state.orders.find(o=>o.id===orderId);
+  if(!order) return;
+  const newHistory = [...(order.history||[]),{status:newStatus,note:state.statusNote,by:state.user.name,at:new Date().toISOString()}];
+  await dbUpdateOrder(orderId,{status:newStatus,history:newHistory});
+  if(newStatus==='completed' && state.user.role==='print'){
+    await dbAddNotification(order, state.statusNote, 'print');
+  }
+  if(newStatus==='ready_for_install' && state.user.role==='production'){
+    await dbAddNotification(order, state.statusNote, 'production');
+  }
+  state.orders = await dbLoadOrders();
+  setState({pendingStatus:null, statusNote:""});
+}
+
+// ─── Actions: החלפת קובץ ──────────────────────────────────────────
+async function doReplaceFile(orderId, file){
+  if(!file) return;
+  showLoadingOverlay('מעלה קובץ...');
+  const fileUrl = await dbUploadFile(orderId, file);
+  await dbUpdateOrder(orderId,{fileName:file.name, fileSize:file.size, fileUrl});
+  state.orders = await dbLoadOrders();
+  hideLoadingOverlay();
+  setState({pdfSrc:fileUrl});
+}
+
+async function doDeleteFile(orderId){
+  if(!confirm('האם למחוק את הקובץ המצורף?')) return;
+  showLoadingOverlay('מוחק קובץ...');
+  await dbUpdateOrder(orderId,{fileName:null, fileSize:null, fileUrl:null});
+  state.orders = await dbLoadOrders();
+  hideLoadingOverlay();
+  setState({pdfSrc:null});
+}
+
+function openDeliveryNote(orderId){
+  const order = state.orders.find(o=>o.id===orderId);
+  if(!order) return;
+  const params = new URLSearchParams({
+    num: order.num||'',
+    customer: order.customer||'',
+    phone: order.phone||'',
+    details: order.details||'',
+    qty: order.quantity||''
+  });
+  if(order.fileUrl) params.set('file', order.fileUrl);
+  if(order.fileName) params.set('filename', order.fileName);
+  window.open('delivery-note.html?'+params.toString(), '_blank');
+}
+
+// ─── Actions: ניווט ───────────────────────────────────────────────
+function doNav(v)              { setState({view:v,selId:null,pdfSrc:null,searchResults:null,searchQuery:''}); }
+function doSetFilter(f)        { setState({filter:f,view:'list',selId:null,pdfSrc:null,searchResults:null,searchQuery:''}); }
+function doGoBack()            { setState({view:'list',selId:null,pdfSrc:null,pendingStatus:null,statusNote:''}); }
+function doSearch(){
+  const q=(state.searchQuery||'').trim();
+  if(!q){ setState({searchResults:null}); return; }
+  const r=state.orders.filter(o=>o.customer.includes(q)).slice().sort((a,b)=>new Date(a.due)-new Date(b.due));
+  setState({searchResults:r,view:'list',selId:null,filter:'all'});
+}
+function doClearSearch()       { setState({searchQuery:'',searchResults:null}); }
+
+function doOpenDetail(id){
+  const order = state.orders.find(o=>o.id===id);
+  const src   = order?.fileUrl || null;
+  setState({selId:id,view:'detail',pdfSrc:src,pdfLoading:false,pendingStatus:null,statusNote:''});
+}
+
+// ─── Loading overlay ──────────────────────────────────────────────
+function showLoadingOverlay(msg){
+  const el=document.getElementById('loading-overlay');
+  el.innerHTML=`<div class="spinner"></div><div>${msg}</div>`;
+  el.style.display='flex';
+}
+function hideLoadingOverlay(){ document.getElementById('loading-overlay').style.display='none'; }
+
+// ─── Helpers ──────────────────────────────────────────────────────
+function fmtDate(iso)  { return iso?new Date(iso).toLocaleDateString('he-IL'):''; }
+function fmtDateTime(iso){ return iso?new Date(iso).toLocaleString('he-IL',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):''; }
+function isPast(due){
+  if(!due) return false;
+  const t=new Date(); t.setHours(0,0,0,0);
+  const d=new Date(due); d.setHours(0,0,0,0);
+  return d<t;
+}
+function getFiltered(){
+  const role=state.user?.role||'clerk';
+  const active={
+    clerk:      ['pending','in_progress','needs_revision','sent_to_client','ready_for_print','in_print','pending_production','in_production','ready_for_install'],
+    graphics:   ['pending','in_progress','needs_revision','sent_to_client','ready_for_print','in_print','pending_production','in_production','ready_for_install'],
+    print:      ['ready_for_print','in_print','pending_production'],
+    production: ['pending_production','in_production','ready_for_install'],
+  }[role]||[];
+  if(state.filter==='completed') return state.orders.filter(o=>o.status==='completed');
+  if(state.filter==='all')       return state.orders.filter(o=>active.includes(o.status));
+  return state.orders.filter(o=>o.status===state.filter);
+}
+function getCounts(){ return state.orders.reduce((a,o)=>({...a,[o.status]:(a[o.status]||0)+1}),{}); }
+
+// ─── SVG Icons ────────────────────────────────────────────────────
+const ICONS={
+  clipboard:`<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>`,
+  list:`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
+  plus:`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+  upload:`<svg width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>`,
+  check:`<svg width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+  inbox:`<svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>`,
+  file:`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>`,
+  user:`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+  calendar:`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+  chevron:`<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>`,
+  arrow_r:`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 19 12 12 5"/></svg>`,
+  download:`<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
+  pdf:`<svg width="18" height="18" fill="none" stroke="#DC2626" stroke-width="1.8" viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="13 2 13 8 20 8"/></svg>`,
+  fileoff:`<svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.3" viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="13 2 13 8 20 8"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`,
+  play:`<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>`,
+  checkmark:`<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`,
+  refresh:`<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`,
+  backtrack:`<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>`,
+  circlecheck:`<svg width="36" height="36" fill="none" stroke="#166534" stroke-width="1.5" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+  search:`<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+};
+function icon(n,s=''){return `<span style="display:inline-flex;align-items:center;${s}" aria-hidden="true">${ICONS[n]||''}</span>`;}
+function badge(status){return `<span class="badge badge-${status}">${STATUS[status]?.label||status}</span>`;}
+function dot(status){return `<span class="history-dot" style="background:${STATUS[status]?.dot||'#94A3B8'}"></span>`;}
+
+// ══════════════════════════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════════════════════════
+function render(){
+  const app=document.getElementById('app');
+  if(!state.user){ app.innerHTML=renderLogin(); document.getElementById('inp-u')?.focus(); return; }
+  let main='';
+  if(state.selId && state.view==='detail') main=renderDetail();
+  else if(state.view==='new' && state.user.role==='clerk') main=renderNewOrder();
+  else main=renderList();
+  app.innerHTML=`${renderNav()}${renderCmdBar()}<div id="body">${renderSidebar()}<main id="main">${main}</main></div>`;
+}
+
+// ── Login ──────────────────────────────────────────────────────────
+function renderLogin(){
+  return `
+  <div id="login-screen">
+    <div class="login-card">
+      <div style="margin-bottom:20px">
+        <img src="${COMPANY_LOGO}" alt="מגוון מערכות שילוט" style="height:70px;object-fit:contain;background:white;border-radius:12px;padding:10px 20px;display:block;margin:0 auto"/>
+      </div>
+      <div style="width:60px;height:3px;background:linear-gradient(90deg,#3B82F6,#60A5FA);border-radius:2px;margin:0 auto 20px"></div>
+      <h1 style="font-size:22px;font-weight:700;color:white;margin-bottom:6px">מערכת הזמנות</h1>
+      <p style="font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:28px">ניהול פנימי · מגוון מערכות שילוט</p>
+
+      <div style="text-align:right;margin-bottom:6px;font-size:12px;font-weight:600;color:rgba(255,255,255,0.6)">שם משתמש</div>
+      <input id="inp-u" placeholder="הכנס שם משתמש" onkeydown="if(event.key==='Enter')onLogin()"
+        style="width:100%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:12px 14px;font-size:14px;color:white;outline:none;margin-bottom:14px;direction:rtl;font-family:inherit"/>
+
+      <div style="text-align:right;margin-bottom:6px;font-size:12px;font-weight:600;color:rgba(255,255,255,0.6)">סיסמה</div>
+      <input id="inp-p" type="password" placeholder="הכנס סיסמה" onkeydown="if(event.key==='Enter')onLogin()"
+        style="width:100%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:12px 14px;font-size:14px;color:white;outline:none;margin-bottom:16px;direction:rtl;font-family:inherit"/>
+
+      ${state.loginErr?`<div style="background:rgba(220,38,38,0.2);border:1px solid rgba(252,165,165,0.4);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:13px;color:#FCA5A5;text-align:center">${state.loginErr}</div>`:''}
+
+      <button onclick="onLogin()"
+        style="width:100%;background:linear-gradient(90deg,#2563EB,#3B82F6);color:white;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;letter-spacing:0.5px">
+        כניסה למערכת
+      </button>
+    </div>
+  </div>`;
+}
+
+// ── Nav ────────────────────────────────────────────────────────────
+function renderNav(){
+  const u=state.user;
+  const roleLabel = u.role==='clerk'?'פקידה':u.role==='graphics'?'גרפיקה':u.role==='print'?'דפוס':'ייצור';
+  return `<nav id="topnav">
+    <div class="brand">${ICONS.clipboard} מערכת הזמנות</div>
+    <div class="user-area">
+      <span class="username">${u.name} · ${roleLabel}</span>
+      <button onclick="doLogout()" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);color:white;border-radius:7px;padding:5px 14px;font-size:13px">יציאה</button>
+    </div>
+  </nav>`;
+}
+
+// ── Command Bar ────────────────────────────────────────────────────
+function renderCmdBar(){
+  const {searchQuery,searchResults} = state;
+  return `<div id="cmdbar">
+    <span style="font-size:13px;font-weight:600;color:#475569;white-space:nowrap">חיפוש לקוח:</span>
+    <input class="search-input" type="text" placeholder="הקלד שם לקוח..." value="${searchQuery||''}" oninput="state.searchQuery=this.value" onkeydown="if(event.key==='Enter')doSearch()"/>
+    <button class="btn-search" onclick="doSearch()">${icon('search','color:white')} חיפוש</button>
+    ${searchResults!==null?`<button class="btn-clear" onclick="doClearSearch()">✕ נקה</button>`:''}
+    ${searchResults!==null?`<span class="search-tag">${searchResults.length} תוצאות עבור "${searchQuery}"</span>`:''}
+    <div style="flex:1"></div>
+    <span style="font-size:12px;color:#94A3B8">${state.orders.length} הזמנות במערכת</span>
+  </div>`;
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────
+function renderSidebar(){
+  const counts=getCounts();
+  const isListActive=!state.selId&&state.view==='list';
+  const isNewActive =!state.selId&&state.view==='new';
+  const role=state.user.role;
+  return `<aside id="sidebar">
+    <button class="nav-btn ${isListActive?'active':''}" onclick="doNav('list')">${icon('list')} כל ההזמנות</button>
+    ${role==='clerk'?`<button class="nav-btn ${isNewActive?'active':''}" onclick="doNav('new')">${icon('plus')} הזמנה חדשה</button>`:''}
+    <div class="filter-label">סינון</div>
+    <button class="filter-btn ${state.filter==='all'?'active':''}" onclick="doSetFilter('all')"><span>הכל</span></button>
+    ${Object.entries(STATUS).filter(([k])=>{
+      if(role==='print') return ['ready_for_print','in_print','pending_production','completed'].includes(k);
+      if(role==='production') return ['pending_production','in_production','ready_for_install','completed'].includes(k);
+      return true;
+    }).map(([k,v])=>`
+      <button class="filter-btn ${state.filter===k?'active':''}" onclick="doSetFilter('${k}')" style="${state.filter===k?'color:'+v.fg:''}">
+        <span class="tag"><span class="dot" style="background:${v.dot}"></span>${v.label}</span>
+        ${counts[k]>0?`<span class="count-badge" style="background:${k==='in_progress'?'#EFF6FF':k==='needs_revision'?'#FEF2F2':k==='ready_for_print'?'#F5F3FF':k==='in_print'?'#ECFEFF':k==='completed'?'#F0FDF4':k==='sent_to_client'?'#FFFBEB':'#FFFBEB'};color:${v.fg}">${counts[k]}</span>`:''}
+      </button>`).join('')}
+  </aside>`;
+}
+
+// ── Notification Board ─────────────────────────────────────────────
+function renderOvertimeBoard(){
+  const overdue = state.orders.filter(o=>{
+    if(o.status==='completed') return false;
+    // בדוק אם תאריך ההזמנה או תאריך ההתקנה חלפו
+    const dueOver     = o.due      && isPast(o.due);
+    const installOver = o.installdue && isPast(o.installdue);
+    return dueOver || installOver;
+  });
+  if(!overdue.length) return '';
+  return `
+  <div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:12px;padding:16px 18px;margin-bottom:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:700;color:#991B1B;display:flex;align-items:center;gap:8px">
+        ⚠ הודעות על עבודה בחריגת זמן
+        <span style="background:#DC2626;color:white;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:700">${overdue.length}</span>
+      </div>
+    </div>
+    ${overdue.map(order=>{
+      const dueOver     = order.due      && isPast(order.due);
+      const installOver = order.installdue && isPast(order.installdue);
+      return `
+      <div onclick="doOpenDetail('${order.id}')" style="background:white;border:1px solid #FCA5A5;border-radius:8px;padding:11px 14px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:12px"
+        onmouseover="this.style.background='#FFF5F5'" onmouseout="this.style.background='white'">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:#1E293B;margin-bottom:4px">
+            ${order.num} — ${order.customer}
+          </div>
+          <div style="display:flex;gap:14px;font-size:12px;flex-wrap:wrap">
+            ${dueOver?`<span style="color:#DC2626;font-weight:600">📅 תאריך הזמנה: ${fmtDate(order.due)} — באיחור</span>`:''}
+            ${installOver?`<span style="color:#DC2626;font-weight:600">🔧 יעד התקנה: ${fmtDate(order.installdue)} — באיחור</span>`:''}
+          </div>
+        </div>
+        <div>
+          <span style="background:${STATUS[order.status]?.dot||'#94A3B8'};color:white;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:600">${STATUS[order.status]?.label||order.status}</span>
+        </div>
+        <span style="color:#CBD5E1;font-size:16px">›</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderNotifBoard(){
+  const notifs=state.notifications;
+  if(!notifs.length) return '';
+  const unread=notifs.filter(n=>!n.read).length;
+  return `<div class="notif-board">
+    <div class="notif-header">
+      <div class="notif-title">🔔 הודעות ${unread>0?`<span class="notif-badge">${unread} חדש</span>`:''}</div>
+      <div style="display:flex;gap:8px">
+        ${unread>0?`<button class="btn-mark-read" onclick="dbMarkAllRead()">סמן הכל כנקרא</button>`:''}
+        <button class="btn-mark-read" style="color:#991B1B;border-color:#FCA5A5" onclick="dbClearAllNotifs()">נקה הכל</button>
+      </div>
+    </div>
+    ${notifs.map(n=>`
+      <div class="notif-item ${n.read?'read':''}">
+        <div class="${n.read?'notif-dot-read':'notif-dot-new'}"></div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:#1E293B">${n.source==='production'?'🏭 הזמנה '+n.orderNum+' מוכנה להתקנה':'✅ הזמנה '+n.orderNum+' הושלמה בדפוס'} <span style="color:#166534">— ${n.customer}</span></div>
+          ${n.note?`<div style="font-size:12px;color:#475569;margin-top:4px;background:#F0FDF4;padding:3px 8px;border-radius:4px;border-right:3px solid #86EFAC">💬 ${n.note}</div>`:''}
+          <div style="font-size:11px;color:#94A3B8;margin-top:4px">${fmtDateTime(n.at)} · ${n.source==='production'?'מנהל ייצור':'עופר'}</div>
+        </div>
+        <button class="notif-dismiss" onclick="dbDismissNotif('${n.id}')">✕</button>
+      </div>`).join('')}
+  </div>`;
+}
+
+// ── List ───────────────────────────────────────────────────────────
+function renderList(){
+  const {searchResults,filter,user} = state;
+  const isSearch=searchResults!==null;
+  const filtered=isSearch?searchResults:getFiltered();
+  const title=isSearch?`תוצאות: "${state.searchQuery}"`:(filter==='all'?'כל ההזמנות':STATUS[filter]?.label);
+  return `<div>
+    ${user.role==='clerk'?renderOvertimeBoard():''}
+    ${user.role==='clerk'?renderNotifBoard():''}
+    <div class="page-header">
+      <h2 class="page-title">${title}<span class="page-count">(${filtered.length})</span></h2>
+      ${user.role==='clerk'?`<button class="btn-primary" onclick="doNav('new')" style="display:flex;align-items:center;gap:6px">${icon('plus','color:white')} הזמנה חדשה</button>`:''}
+    </div>
+    ${filtered.length===0?`<div class="empty-state">${icon('inbox','color:#94A3B8')}<div style="font-size:16px;font-weight:600;color:#64748B;margin-top:12px">אין הזמנות</div></div>`
+    :filtered.map(order=>{
+      const urgent=isPast(order.due)&&!['completed','sent_to_client'].includes(order.status);
+      const lastNote=order.history&&[...order.history].reverse().find(h=>h.status===order.status&&h.note);
+      return `<div class="order-row ${urgent?'urgent':''}" onclick="doOpenDetail('${order.id}')">
+        <div class="order-num-box">
+          <div style="font-size:10px;color:#94A3B8;font-weight:600;margin-bottom:2px">מספר</div>
+          <div style="font-size:13px;font-weight:700;color:#1E293B;font-family:monospace">${order.num}</div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:15px;color:#1E293B;margin-bottom:5px">${order.customer}</div>
+          <div style="font-size:12px;color:#94A3B8;display:flex;gap:14px;flex-wrap:wrap">
+            <span style="display:flex;align-items:center;gap:4px">${icon('file')} ${order.fileName||'ללא קובץ'}</span>
+            <span style="display:flex;align-items:center;gap:4px">${icon('user')} ${order.byName}</span>
+            <span style="display:flex;align-items:center;gap:4px">${icon('calendar')} ${fmtDate(order.createdAt)}</span>
+          </div>
+          ${lastNote?`<div style="font-size:12px;color:#475569;margin-top:5px;background:#F8FAFC;border-right:3px solid #CBD5E1;padding:3px 8px;border-radius:0 4px 4px 0">${lastNote.note}</div>`:''}
+        </div>
+        <div style="text-align:center;flex-shrink:0">
+          <div style="font-size:10px;color:#94A3B8;font-weight:600;margin-bottom:2px">יעד</div>
+          <div style="font-size:13px;font-weight:600;color:${urgent?'#991B1B':'#334155'}">${fmtDate(order.due)}</div>
+          ${urgent?'<div style="font-size:10px;color:#991B1B;font-weight:600">⚠ באיחור</div>':''}
+        </div>
+        ${badge(order.status)}
+        ${icon('chevron','color:#CBD5E1')}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ── New Order ──────────────────────────────────────────────────────
+function renderNewOrder(){
+  const {form,formError}=state;
+  return `<div style="max-width:560px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px">
+      <button class="back-btn" onclick="doGoBack()">${icon('arrow_r')} חזרה</button>
+      <h2 class="page-title">הזמנה חדשה</h2>
+    </div>
+    <div class="card" style="padding:28px">
+      <div class="field-wrap"><label>שם לקוח *</label><input class="input-field" value="${form.customer||''}" placeholder="הכנס שם לקוח" oninput="state.form.customer=this.value"/></div>
+      <div class="field-wrap"><label>טלפון ליצירת קשר</label><input class="input-field" type="tel" value="${form.phone||''}" placeholder="050-0000000" oninput="state.form.phone=this.value" style="text-align:right"/></div>
+      <div class="field-wrap"><label>פירוט הזמנה</label><textarea class="input-field" rows="4" placeholder="סוג עבודה, מידות, צבעים, דגשים..." style="resize:vertical" oninput="state.form.details=this.value">${form.details||''}</textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
+        <div><label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">תאריך ההזמנה *</label><input type="date" class="input-field" value="${form.due||today()}" onchange="state.form.due=this.value"/></div>
+        <div><label style="display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px">כמות</label><input type="number" min="1" class="input-field" value="${form.quantity||''}" placeholder="כמות" oninput="state.form.quantity=this.value" style="text-align:right"/></div>
+      </div>
+      <div class="field-wrap">
+        <label>תאריך אספקה</label>
+        <input type="date" class="input-field" value="${form.installdue||''}" onchange="state.form.installdue=this.value"/>
+      </div>
+      <div class="field-wrap"><label>הערות נוספות</label><textarea class="input-field" rows="2" placeholder="הערות כלליות..." style="resize:vertical" oninput="state.form.notes=this.value">${form.notes||''}</textarea></div>
+      <div class="field-wrap">
+        <label>קיימת גרפיקה</label>
+        <div style="display:flex;gap:10px;margin-top:2px">
+          <button onclick="state.form.hasGraphics=true;render()" style="flex:1;padding:10px;border-radius:8px;border:2px solid ${form.hasGraphics===true?'#166534':'#E2E8F0'};background:${form.hasGraphics===true?'#F0FDF4':'white'};color:${form.hasGraphics===true?'#166534':'#64748B'};font-size:14px;font-weight:${form.hasGraphics===true?'700':'400'};cursor:pointer">
+            ✓ כן
+          </button>
+          <button onclick="state.form.hasGraphics=false;render()" style="flex:1;padding:10px;border-radius:8px;border:2px solid ${form.hasGraphics===false?'#991B1B':'#E2E8F0'};background:${form.hasGraphics===false?'#FEF2F2':'white'};color:${form.hasGraphics===false?'#991B1B':'#64748B'};font-size:14px;font-weight:${form.hasGraphics===false?'700':'400'};cursor:pointer">
+            ✗ לא
+          </button>
+        </div>
+      </div>
+      <div class="field-wrap">
+        <label>קובץ מצורף <span style="font-weight:400;color:#94A3B8">(אופציונלי — PDF או JPG)</span></label>
+        <div class="upload-zone ${form.file?'has-file':''}" onclick="document.getElementById('file-inp').click()">
+          ${form.file?`${icon('check','color:#2563EB')}<div style="font-weight:600;color:#1E40AF;font-size:14px;margin-top:4px">${form.file.name}</div><div style="font-size:12px;color:#3B82F6;margin-top:4px">${(form.file.size/1024).toFixed(0)} KB · לחץ להחלפה</div>`:
+          `<div style="color:#94A3B8">${icon('upload')}</div><div style="font-weight:600;color:#475569;font-size:14px;margin-top:4px">לחץ להעלאת קובץ</div><div style="font-size:12px;color:#94A3B8;margin-top:4px">PDF או JPG</div>`}
+          <input id="file-inp" type="file" accept=".pdf,.jpg,.jpeg" style="display:none" onchange="state.form.file=this.files[0];render()"/>
+        </div>
+      </div>
+      ${formError?`<div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;padding:9px 14px;margin-bottom:12px;font-size:13px;color:#991B1B;font-weight:600">⚠ ${formError}</div>`:''}
+      <div style="display:flex;gap:12px">
+        <button class="btn-primary" style="flex:1;padding:12px;font-size:15px" onclick="doCreateOrder()">✓ שלח לגרפיקה</button>
+        <button class="btn-ghost" onclick="doGoBack()">ביטול</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Detail ─────────────────────────────────────────────────────────
+function renderDetail(){
+  const order=state.orders.find(o=>o.id===state.selId);
+  if(!order) return '<div>לא נמצאה הזמנה</div>';
+  const {pdfSrc,pdfLoading,pendingStatus,statusNote,user}=state;
+  const urgent=isPast(order.due)&&!['completed','sent_to_client'].includes(order.status);
+
+  // Status actions
+  let statusActions='';
+  const notDone=order.status!=='completed';
+  const bgMap={completed:'#F0FDF4',needs_revision:'#FEF2F2',ready_for_print:'#F5F3FF',in_print:'#ECFEFF',in_progress:'#EFF6FF',sent_to_client:'#FFFBEB',pending_production:'#EDE9FE',in_production:'#FFF7ED',ready_for_install:'#EFF6FF'};
+
+  if(notDone&&!pendingStatus){
+    let btns='';
+    if(user.role==='graphics'){
+      if(order.status==='pending')
+        btns=`<button class="btn-status btn-start" onclick="setState({pendingStatus:'in_progress'})">${icon('play','color:#1E40AF')} התחל טיפול</button>`;
+      if(order.status==='in_progress')
+        btns=`
+          <button class="btn-status" style="background:#FFFBEB;color:#B45309;border:1px solid #FCD34D" onclick="setState({pendingStatus:'sent_to_client'})">${icon('checkmark','color:#B45309')} שלח ללקוח לאישור</button>
+          <button class="btn-status" style="background:#F5F3FF;color:#6B21A8;border:1px solid #C4B5FD" onclick="setState({pendingStatus:'ready_for_print'})">${icon('checkmark','color:#6B21A8')} שלח לדפוס</button>
+          <button class="btn-status btn-done" onclick="setState({pendingStatus:'completed'})">${icon('checkmark','color:#166534')} סיים ללא דפוס</button>
+          <button class="btn-status btn-revision" onclick="setState({pendingStatus:'needs_revision'})">${icon('refresh','color:#991B1B')} דרוש תיקון</button>`;
+      if(order.status==='sent_to_client')
+        btns=`
+          <button class="btn-status" style="background:#F5F3FF;color:#6B21A8;border:1px solid #C4B5FD" onclick="setState({pendingStatus:'ready_for_print'})">${icon('checkmark','color:#6B21A8')} הלקוח אישר — שלח לדפוס</button>
+          <button class="btn-status btn-back" onclick="setState({pendingStatus:'in_progress'})">${icon('backtrack','color:#1E40AF')} חזור לעריכה</button>`;
+      if(order.status==='needs_revision')
+        btns=`<button class="btn-status btn-back" onclick="setState({pendingStatus:'in_progress'})">${icon('backtrack','color:#1E40AF')} חזור לטיפול</button>`;
+    }
+    if(user.role==='print'){
+      if(order.status==='ready_for_print')
+        btns=`<button class="btn-status" style="background:#ECFEFF;color:#0E7490;border:1px solid #67E8F9" onclick="setState({pendingStatus:'in_print'})">${icon('play','color:#0E7490')} קבל עבודה להדפסה</button>`;
+      if(order.status==='in_print')
+        btns=`
+          <button class="btn-status btn-done" onclick="setState({pendingStatus:'completed'})">${icon('checkmark','color:#166534')} הדפוס הושלם</button>
+          <button class="btn-status" style="background:#EDE9FE;color:#7C3AED;border:1px solid #C4B5FD" onclick="setState({pendingStatus:'pending_production'})">${icon('play','color:#7C3AED')} שלח לייצור</button>
+          <button class="btn-status btn-revision" onclick="setState({pendingStatus:'needs_revision'})">${icon('refresh','color:#991B1B')} החזר לגרפיקה</button>`;
+    }
+    if(user.role==='production'){
+      if(order.status==='pending_production')
+        btns=`<button class="btn-status" style="background:#FFF7ED;color:#C2410C;border:1px solid #FED7AA" onclick="setState({pendingStatus:'in_production'})">${icon('play','color:#C2410C')} התחל עבודת ייצור</button>`;
+      if(order.status==='in_production')
+        btns=`
+          <button class="btn-status" style="background:#EFF6FF;color:#1D4ED8;border:1px solid #93C5FD" onclick="setState({pendingStatus:'ready_for_install'})">${icon('checkmark','color:#1D4ED8"')} מוכן להתקנה</button>
+          <button class="btn-status btn-revision" onclick="setState({pendingStatus:'ready_for_print'})">${icon('refresh','color:#991B1B')} החזר לדפוס — פגם</button>`;
+    }
+    if(btns) statusActions=`<div class="card" style="padding:18px 20px;margin-bottom:14px"><div class="section-title">${user.role==='print'?'פעולות דפוס':user.role==='production'?'פעולות ייצור':'עדכון סטטוס'}</div>${btns}</div>`;
+  } else if(notDone&&pendingStatus){
+    const ps=STATUS[pendingStatus];
+    const isToProduction = pendingStatus==='pending_production';
+    statusActions=`<div class="card" style="padding:18px 20px;margin-bottom:14px">
+      <div class="section-title">${user.role==='print'?'פעולות דפוס':user.role==='production'?'פעולות ייצור':'עדכון סטטוס'}</div>
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:${bgMap[pendingStatus]||'#EFF6FF'};border-radius:8px;margin-bottom:12px;font-size:13px;font-weight:600;color:${ps.fg}">← ${ps.label}</div>
+      <textarea class="input-field" rows="2" placeholder="${isToProduction?'כתוב הערה...':'הוסף הערה (אופציונלי)...'}" style="resize:none;margin-bottom:10px" oninput="state.statusNote=this.value">${statusNote}</textarea>
+      <div style="display:flex;gap:9px">
+        <button class="btn-primary" style="flex:1;padding:9px" onclick="doUpdateStatus('${order.id}','${pendingStatus}')">אשר</button>
+        <button class="btn-ghost" onclick="setState({pendingStatus:null,statusNote:''})">ביטול</button>
+      </div>
+    </div>`;
+  }
+
+  // Status info boxes
+  const infoBox=
+    order.status==='completed' ? `<div class="card" style="padding:20px;text-align:center;margin-bottom:14px;background:#F0FDF4;border-color:#86EFAC">${icon('circlecheck','margin-bottom:8px;display:block')}<div style="font-weight:700;color:#14532D;font-size:15px;margin-bottom:${user.role==='clerk'?'12px':'0'}">הזמנה הושלמה!</div>${user.role==='clerk'?`<button onclick="openDeliveryNote('${order.id}')" style="background:#B8863B;color:white;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer;width:100%">📄 הפק תעודת משלוח</button>`:''}</div>` :
+    order.status==='sent_to_client'&&user.role==='clerk' ? `<div class="card" style="padding:16px 18px;margin-bottom:14px;background:#FFFBEB;border-color:#FCD34D"><div style="font-weight:700;color:#B45309;font-size:14px;margin-bottom:4px">📤 נשלח ללקוח לאישור</div><div style="font-size:12px;color:#D97706">הגרפיקאי שלח את העבודה ללקוח ומחכה לאישור</div></div>` :
+    order.status==='ready_for_print'&&user.role!=='print' ? `<div class="card" style="padding:16px 18px;margin-bottom:14px;background:#F5F3FF;border-color:#C4B5FD"><div style="font-weight:700;color:#6B21A8;font-size:14px;margin-bottom:4px">⏳ ממתין לדפוס</div><div style="font-size:12px;color:#7C3AED">ההזמנה הועברה לעופר במחלקת הדפוס</div></div>` :
+    order.status==='in_print'&&user.role!=='print' ? `<div class="card" style="padding:16px 18px;margin-bottom:14px;background:#ECFEFF;border-color:#67E8F9"><div style="font-weight:700;color:#0E7490;font-size:14px;margin-bottom:4px">🖨 בתהליך דפוס</div><div style="font-size:12px;color:#0891B2">עופר מטפל בהזמנה כרגע</div></div>` :
+    order.status==='pending_production'&&user.role!=='production' ? `<div class="card" style="padding:16px 18px;margin-bottom:14px;background:#EDE9FE;border-color:#C4B5FD"><div style="font-weight:700;color:#7C3AED;font-size:14px;margin-bottom:4px">⏳ ממתין לייצור</div><div style="font-size:12px;color:#7C3AED">ההזמנה הועברה למחלקת הייצור</div></div>` :
+    order.status==='in_production'&&user.role!=='production' ? `<div class="card" style="padding:16px 18px;margin-bottom:14px;background:#FFF7ED;border-color:#FED7AA"><div style="font-weight:700;color:#C2410C;font-size:14px;margin-bottom:4px">🏭 בתהליך ייצור</div><div style="font-size:12px;color:#EA580C">מנהל הייצור מטפל בהזמנה כרגע</div></div>` :
+    order.status==='ready_for_install'&&user.role==='clerk' ? `<div class="card" style="padding:16px 18px;margin-bottom:14px;background:#EFF6FF;border-color:#93C5FD">
+      <div style="font-weight:700;color:#1D4ED8;font-size:14px;margin-bottom:8px">✅ מוכן להתקנה — ממתין לאישורך</div>
+      <button onclick="openDeliveryNote('${order.id}')" style="background:#B8863B;color:white;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer;width:100%;margin-bottom:8px">📄 הפק תעודת משלוח</button>
+      <button onclick="doUpdateStatus('${order.id}','completed')" style="background:#166534;color:white;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer;width:100%">אשר וסגור הזמנה</button>
+    </div>` : '';
+
+  // PDF
+  const isImg=pdfSrc&&/\.(jpg|jpeg)$/i.test(order.fileName||'');
+  const pdfContent=pdfLoading?`<div style="text-align:center;color:#94A3B8"><div style="font-size:30px;animation:spin 1s linear infinite;display:inline-block">↻</div><div style="font-size:13px;margin-top:10px">טוען...</div></div>`:
+    pdfSrc?(isImg?`<img src="${pdfSrc}" style="max-width:100%;max-height:100%;object-fit:contain" alt="הזמנה"/>`:
+    `<iframe src="${pdfSrc}" style="width:100%;height:100%;border:none" title="PDF"></iframe>`):
+    order.fileName?`<div class="pdf-placeholder">${icon('fileoff','color:#94A3B8')}<div style="font-size:14px;font-weight:600;color:#64748B;margin-top:10px">לא ניתן לטעון</div></div>`:
+    `<div class="pdf-placeholder" style="color:#CBD5E1"><svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg><div style="font-size:14px;color:#94A3B8;margin-top:10px">לא צורף קובץ</div></div>`;
+
+  // History
+  const history=[...(order.history||[])].reverse().map((h,i,arr)=>`
+    <div class="history-item" style="${i>=arr.length-1?'margin-bottom:0':''}">
+      <div class="history-line">${dot(h.status)}${i<arr.length-1?'<div class="history-connector"></div>':''}</div>
+      <div style="flex:1;padding-bottom:2px">
+        <div style="font-size:13px;font-weight:700;color:${STATUS[h.status]?.fg||'#64748B'}">${STATUS[h.status]?.label||h.status}</div>
+        ${h.note?`<div style="font-size:12px;color:#475569;margin-top:3px">${h.note}</div>`:''}
+        <div style="font-size:11px;color:#94A3B8;margin-top:3px">${h.by} · ${fmtDateTime(h.at)}</div>
+      </div>
+    </div>`).join('');
+
+  return `<div>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+      <button class="back-btn" onclick="doGoBack()">${icon('arrow_r')} חזרה</button>
+      <div style="flex:1"><h2 class="page-title">הזמנה ${order.num}</h2><div style="font-size:12px;color:#94A3B8;margin-top:2px">${order.customer} · ${fmtDateTime(order.createdAt)} · ${order.byName}</div></div>
+      ${badge(order.status)}
+    </div>
+    <div class="detail-grid">
+      <div class="card" style="overflow:hidden">
+        <div class="pdf-toolbar">
+          <span style="font-size:14px;font-weight:600;color:#1E293B;display:flex;align-items:center;gap:6px">${order.fileName?`${icon('pdf')} ${order.fileName}`:'<span style="color:#94A3B8">ללא קובץ מצורף</span>'}</span>
+          <div style="display:flex;align-items:center;gap:10px">
+            ${pdfSrc?`<a href="${pdfSrc}" target="_blank" style="font-size:13px;color:#2563EB;text-decoration:none;display:flex;align-items:center;gap:4px">${icon('download')} הורדה</a>`:''}
+            ${user.role==='graphics'&&order.fileName?`<button onclick="doDeleteFile('${order.id}')" title="מחק קובץ" style="font-size:13px;color:#DC2626;cursor:pointer;display:flex;align-items:center;gap:4px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:6px;padding:4px 10px;font-weight:600">✕ מחק</button>`:''}
+            ${user.role==='graphics'?`<label style="font-size:13px;color:#6B21A8;cursor:pointer;display:flex;align-items:center;gap:4px;background:#F5F3FF;border:1px solid #C4B5FD;border-radius:6px;padding:4px 10px;font-weight:600">🔄 החלף קובץ<input type="file" accept=".pdf,.jpg,.jpeg" style="display:none" onchange="doReplaceFile('${order.id}',this.files[0])"/></label>`:''}
+          </div>
+        </div>
+        <div class="pdf-body" id="pdf-drop-zone"
+          ${user.role==='graphics'?`
+          ondragover="event.preventDefault();this.style.background='#EDE9FE';this.style.outline='3px dashed #8B5CF6';this.style.outlineOffset='-10px'"
+          ondragleave="this.style.background='#F8FAFC';this.style.outline='none'"
+          ondrop="event.preventDefault();this.style.background='#F8FAFC';this.style.outline='none';const f=event.dataTransfer.files[0];if(f&&(f.type==='application/pdf'||f.type.startsWith('image/')))doReplaceFile('${order.id}',f);else alert('ניתן לגרור רק קבצי PDF או JPG')"
+          `:''}>
+          ${user.role==='graphics'&&!order.fileName?`<div style="text-align:center;color:#94A3B8;pointer-events:none"><div style="font-size:36px;margin-bottom:8px">📥</div><div style="font-size:14px;font-weight:600;color:#64748B">גרור קובץ לכאן</div><div style="font-size:12px;margin-top:4px">או השתמש בכפתור "החלף קובץ" למעלה</div></div>`:pdfContent}
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="card" style="padding:18px 20px">
+          <div class="section-title">פרטי הזמנה</div>
+          ${[['לקוח',order.customer],['טלפון', order.phone?`<a href="tel:${order.phone}" style="color:#2563EB;text-decoration:none;font-weight:600">📞 ${order.phone}</a>`:'—'],['כמות',order.quantity?order.quantity+' יח׳':'—'],['קיימת גרפיקה', order.hasGraphics===true?'<span style="color:#166534;font-weight:700">✓ כן</span>': order.hasGraphics===false?'<span style="color:#991B1B;font-weight:700">✗ לא</span>':'—'],['תאריך ההזמנה',`<span style="color:${urgent?'#991B1B':'inherit'}">${fmtDate(order.due)}${urgent?' ⚠':''}</span>`],['תאריך אספקה', order.installdue?`<span style="color:${isPast(order.installdue)&&order.status!=='completed'?'#991B1B':'inherit'}">${fmtDate(order.installdue)}${isPast(order.installdue)&&order.status!=='completed'?' ⚠':''}</span>`:'—'],["נוצר ע\"י",order.byName],['תאריך יצירה',fmtDateTime(order.createdAt)]].map(([k,v])=>`<div class="detail-meta"><span style="color:#94A3B8;font-weight:500">${k}</span><span style="font-weight:600;color:#1E293B">${v}</span></div>`).join('')}
+          ${order.details?`<div style="margin-top:10px;padding:10px 12px;background:#F0F9FF;color:#0C4A6E;border:1px solid #7DD3FC;border-radius:8px"><div style="font-weight:700;margin-bottom:6px">פירוט הזמנה:</div><div style="line-height:1.7;white-space:pre-wrap;font-size:13px">${order.details}</div></div>`:''}
+          ${(()=>{ const prodNote = order.history&&[...order.history].reverse().find(h=>h.status==='pending_production'&&h.note); return prodNote&&(user.role==='production'||user.role==='clerk')?`<div style="margin-top:10px;padding:10px 12px;background:#FFF7ED;color:#C2410C;border:1px solid #FED7AA;border-radius:8px"><div style="font-weight:700;margin-bottom:4px">📋 הוראות לייצור מעופר:</div>${prodNote.note}</div>`:''; })()}
+          ${order.notes?`<div style="margin-top:10px;padding:10px 12px;background:#FFFBEB;color:#92400E;border:1px solid #FCD34D;border-radius:8px"><div style="font-weight:700;margin-bottom:4px">הערות:</div>${order.notes}</div>`:''}
+        </div>
+        ${statusActions}
+        ${infoBox}
+        <div class="card" style="padding:18px 20px">
+          <div class="section-title">היסטוריה</div>
+          ${history}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Event handlers ─────────────────────────────────────────────────
+function onLogin(){
+  const u=document.getElementById('inp-u')?.value||'';
+  const p=document.getElementById('inp-p')?.value||'';
+  doLogin(u,p);
+}
+
+// ── Start ──────────────────────────────────────────────────────────
+init();
+
+// ══════════════════════════════════════════════════════════════════
+// צ'אט פנימי
+// ══════════════════════════════════════════════════════════════════
+let chatState = {
+  open: false,
+  tab: 'group',       // 'group' | 'private'
+  chatWith: null,     // {id, name, role}
+  messages: [],
+  users: [],
+  unread: 0,
+  lastSeen: localStorage.getItem('chat_lastseen') || '1970-01-01',
+};
+
+const ROLE_EMOJI = {clerk:'📋',graphics:'🎨',print:'🖨',production:'🏭'};
+const ROLE_COLOR = {clerk:'#1E3A5F',graphics:'#6B21A8',print:'#0E7490',production:'#C2410C'};
+
+async function chatInit(){
+  if(!state.user) return;
+  // טעינת משתמשים
+  const {data} = await db.from('users').select('id,name,role,username').neq('id', state.user.id);
+  chatState.users = data||[];
+  // טעינת הודעות קבוצתיות
+  await chatLoadMessages();
+  // Realtime
+  db.channel('chat-channel')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'}, payload=>{
+      const m = payload.new;
+      const isRelevant = !m.recipientid || m.recipientid===state.user.id || m.senderid===state.user.id;
+      const isCurrentChat = chatState.open && (
+        (chatState.tab==='group' && !m.recipientid) ||
+        (chatState.tab==='private' && chatState.chatWith && (m.senderid===chatState.chatWith.id || m.recipientid===chatState.chatWith.id))
+      );
+      if(isRelevant){
+        if(m.senderid !== state.user.id){
+          if(!isCurrentChat){ chatState.unread++; updateBadge(); }
+        }
+        if(isCurrentChat){
+          chatState.messages.push(mapMsg(m));
+          renderChatMessages();
+        }
+      }
+    })
+    .subscribe();
+  renderChatWidget();
+}
+
+function mapMsg(m){ return {id:m.id, senderId:m.senderid||m.senderId, senderName:m.sendername||m.senderName, recipientId:m.recipientid||m.recipientId||null, content:m.content, createdAt:m.createdat||m.createdAt}; }
+
+async function chatLoadMessages(){
+  let q = db.from('messages').select('*').order('createdat',{ascending:true});
+  if(chatState.tab==='group'){
+    q = q.is('recipientid', null);
+  } else if(chatState.chatWith){
+    q = q.or(`and(senderid.eq.${state.user.id},recipientid.eq.${chatState.chatWith.id}),and(senderid.eq.${chatState.chatWith.id},recipientid.eq.${state.user.id})`);
+  }
+  const {data} = await q.limit(100);
+  chatState.messages = (data||[]).map(mapMsg);
+}
+
+async function chatSend(){
+  const input = document.getElementById('chat-input');
+  if(!input) return;
+  const content = input.value.trim();
+  if(!content) return;
+  input.value='';
+  const msg = {
+    id:'m_'+Date.now(),
+    senderid:state.user.id, sendername:state.user.name,
+    recipientid: chatState.tab==='private' && chatState.chatWith ? chatState.chatWith.id : null,
+    content, createdat:new Date().toISOString()
+  };
+  const {error} = await db.from('messages').insert(msg);
+  if(!error){
+    chatState.messages.push(mapMsg(msg));
+    renderChatMessages();
+  }
+}
+
+function chatOpen(){
+  chatState.open=!chatState.open;
+  if(chatState.open){ chatState.unread=0; updateBadge(); localStorage.setItem('chat_lastseen',new Date().toISOString()); }
+  const win=document.getElementById('chat-window');
+  if(win){ win.className=chatState.open?'open':''; }
+  if(chatState.open) setTimeout(()=>{ const el=document.getElementById('chat-messages'); if(el) el.scrollTop=el.scrollHeight; },50);
+}
+
+function chatSetTab(tab){
+  chatState.tab=tab; chatState.chatWith=null; chatState.messages=[];
+  document.querySelectorAll('.chat-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.chat-tab')[tab==='group'?0:1]?.classList.add('active');
+  document.getElementById('chat-users').className = tab==='private'?'visible':'';
+  document.getElementById('chat-title-text').textContent = tab==='group'?'💬 קבוצתי':'👤 פרטי';
+  document.getElementById('chat-back').style.display='none';
+  if(tab==='group'){ chatLoadMessages().then(renderChatMessages); }
+  else{ chatState.messages=[]; renderChatMessages(); }
+}
+
+function chatOpenPrivate(user){
+  chatState.chatWith=user; chatState.messages=[];
+  document.getElementById('chat-users').className='';
+  document.getElementById('chat-title-text').textContent=`💬 ${user.name}`;
+  document.getElementById('chat-back').style.display='inline';
+  chatLoadMessages().then(renderChatMessages);
+}
+
+function chatBack(){
+  chatState.chatWith=null; chatState.messages=[];
+  document.getElementById('chat-users').className='visible';
+  document.getElementById('chat-title-text').textContent='👤 פרטי';
+  document.getElementById('chat-back').style.display='none';
+  renderChatMessages();
+}
+
+function updateBadge(){
+  const b=document.getElementById('chat-badge');
+  if(!b) return;
+  if(chatState.unread>0){ b.style.display='flex'; b.textContent=chatState.unread>9?'9+':chatState.unread; }
+  else { b.style.display='none'; }
+}
+
+function fmtChatTime(iso){ if(!iso) return ''; const d=new Date(iso); return d.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}); }
+
+function renderChatMessages(){
+  const el=document.getElementById('chat-messages');
+  if(!el) return;
+  const msgs = chatState.messages;
+  if(!msgs.length){ el.innerHTML='<div style="text-align:center;color:#94A3B8;padding:20px;font-size:13px">אין הודעות עדיין</div>'; return; }
+  el.innerHTML = msgs.map(m=>{
+    const mine = m.senderId===state.user.id;
+    return `<div class="msg-row ${mine?'mine':'theirs'}">
+      <div class="msg-bubble">${m.content}</div>
+      <div class="msg-meta">${mine?'':m.senderName+' · '}${fmtChatTime(m.createdAt)}</div>
+    </div>`;
+  }).join('');
+  el.scrollTop=el.scrollHeight;
+}
+
+function renderChatWidget(){
+  const existing=document.getElementById('chat-bubble');
+  if(existing) existing.remove();
+  if(!state.user) return;
+  const div=document.createElement('div');
+  div.id='chat-bubble';
+  div.innerHTML=`
+    <div id="chat-window" class="${chatState.open?'open':''}">
+      <div id="chat-header">
+        <button id="chat-back" onclick="chatBack()" style="display:none;background:none;border:none;color:rgba(255,255,255,0.8);cursor:pointer;font-size:13px">← חזרה</button>
+        <span id="chat-title-text">💬 קבוצתי</span>
+        <button onclick="chatOpen()" style="background:none;border:none;color:rgba(255,255,255,0.7);cursor:pointer;font-size:18px;line-height:1">✕</button>
+      </div>
+      <div id="chat-tabs">
+        <button class="chat-tab active" onclick="chatSetTab('group')">קבוצתי 👥</button>
+        <button class="chat-tab" onclick="chatSetTab('private')">פרטי 👤</button>
+      </div>
+      <div id="chat-users">
+        ${chatState.users.map(u=>`
+          <button class="chat-user-btn" onclick="chatOpenPrivate({id:'${u.id}',name:'${u.name}',role:'${u.role}'})">
+            <div class="chat-user-avatar" style="background:${ROLE_COLOR[u.role]||'#1E3A5F'}20;color:${ROLE_COLOR[u.role]||'#1E3A5F'}">${ROLE_EMOJI[u.role]||'👤'}</div>
+            <div>
+              <div style="font-weight:600">${u.name}</div>
+              <div style="font-size:11px;color:#94A3B8">${u.role==='clerk'?'פקידה':u.role==='graphics'?'גרפיקה':u.role==='print'?'דפוס':'ייצור'}</div>
+            </div>
+          </button>`).join('')}
+      </div>
+      <div id="chat-messages"></div>
+      <div id="chat-input-row">
+        <input id="chat-input" placeholder="כתוב הודעה..." onkeydown="if(event.key==='Enter')chatSend()"/>
+        <button id="chat-send" onclick="chatSend()">שלח</button>
+      </div>
+    </div>
+    <button id="chat-btn" onclick="chatOpen()" title="צ'אט פנימי">
+      💬
+      <div id="chat-badge"></div>
+    </button>`;
+  document.body.appendChild(div);
+  renderChatMessages();
+  updateBadge();
+  if(chatState.open) setTimeout(()=>{ const el=document.getElementById('chat-messages'); if(el) el.scrollTop=el.scrollHeight; },50);
+}
+
+// אתחול צ'אט אחרי כניסה
+const _origSetState = setState;
+setState = function(patch){
+  const wasLoggedIn = !!state.user;
+  _origSetState(patch);
+  if(!wasLoggedIn && state.user){ chatInit(); }
+  else if(state.user){ renderChatWidget(); }
+};
+</script>
+</body>
+</html>
